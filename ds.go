@@ -1,6 +1,7 @@
 package ds
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -47,6 +48,10 @@ func (dsh *ssDSHandler) addIndex(idx, k datastore.Key) error {
 }
 
 func (dsh *ssDSHandler) Create(i store.Item) error {
+	serializableItem, ok := i.(store.Serializable)
+	if ok != true {
+		return errors.New("store is not Serializable")
+	}
 	idSetter, ok := i.(store.IDSetter)
 	if ok == true {
 		idSetter.SetID(uuid.New().String())
@@ -61,7 +66,7 @@ func (dsh *ssDSHandler) Create(i store.Item) error {
 		dsh.addIndex(createIndexKey(timeTracker.GetUpdated(), "update"), key)
 	}
 
-	value, err := i.Marshal()
+	value, err := serializableItem.Marshal()
 	if err != nil {
 		return err
 	}
@@ -69,15 +74,24 @@ func (dsh *ssDSHandler) Create(i store.Item) error {
 }
 
 func (dsh *ssDSHandler) Read(i store.Item) error {
+	serializableItem, ok := i.(store.Serializable)
+	if ok != true {
+		return errors.New("item is not Serializable")
+	}
 	key := createKey(i)
 	buf, err := dsh.ds.Get(key)
 	if err != nil {
 		return err
 	}
-	return i.Unmarshal(buf)
+	return serializableItem.Unmarshal(buf)
 }
 
 func (dsh *ssDSHandler) Update(i store.Item) error {
+	serializableItem, ok := i.(store.Serializable)
+	if ok != true {
+		return errors.New("item is not Serializable")
+	}
+
 	key := createKey(i)
 	if timeTracker, ok := i.(store.TimeTracker); ok {
 		var unixTime = time.Now().Unix()
@@ -85,7 +99,7 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 		timeTracker.SetUpdated(unixTime)
 		dsh.addIndex(createIndexKey(timeTracker.GetUpdated(), "update"), key)
 	}
-	value, err := i.Marshal()
+	value, err := serializableItem.Marshal()
 	if err != nil {
 		return err
 	}
@@ -116,7 +130,11 @@ func (dsh *ssDSHandler) List(l store.Items, o store.ListOpt) (int, error) {
 		result, _ := dsh.ds.Query(q)
 		for v := range result.Next() {
 			if listCounter < int(o.Limit) {
-				err := l[listCounter].Unmarshal(v.Value)
+				serializableItem, ok := l[listCounter].(store.Serializable)
+				if ok != true {
+					continue
+				}
+				err := serializableItem.Unmarshal(v.Value)
 				if err != nil {
 					continue
 				}
@@ -198,7 +216,11 @@ func (dsh *ssDSHandler) getSortedResults(limit int64, q query.Query, l store.Ite
 				log.Errorf("Unable to get data ", err.Error())
 				continue
 			}
-			err = l[listCounter].Unmarshal(buf)
+			serializableItem, ok := l[listCounter].(store.Serializable)
+			if ok != true {
+				continue
+			}
+			err = serializableItem.Unmarshal(buf)
 			if err != nil {
 				log.Errorf("Unable to Unmarshal data ", err.Error())
 				continue
