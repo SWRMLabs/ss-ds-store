@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/StreamSpace/ss-store"
+	store "github.com/StreamSpace/ss-store"
 	"github.com/google/uuid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"

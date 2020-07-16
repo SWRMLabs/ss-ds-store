@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/StreamSpace/ss-store"
+	store "github.com/StreamSpace/ss-store"
 	"github.com/google/uuid"
 	"github.com/ipfs/go-datastore"
 	badger "github.com/ipfs/go-ds-badger"
@@ -59,22 +59,20 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestNewStore(t *testing.T) {
+func TestNewCreation(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
 		t.Fatal(" store init failed")
 	}
-}
 
-func TestNewCreation(t *testing.T) {
 	d := successStruct{
 		Namespace: "StreamSpace",
 		Id:        "04791e92-0b85-11ea-8d71-362b9e155667",
 		FileName:  "MyTestFile.txt",
 	}
 
-	err := dsHndlr.Create(&d)
+	err = dsHndlr.Create(&d)
 
 	if err != nil {
 		t.Fatal(err.Error())
@@ -82,11 +80,17 @@ func TestNewCreation(t *testing.T) {
 }
 
 func TestNewRead(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Fatal(" store init failed")
+	}
+
 	d := successStruct{
 		Namespace: "StreamSpace",
 		Id:        "04791e92-0b85-11ea-8d71-362b9e155667",
 	}
-	err := dsHndlr.Read(&d)
+	err = dsHndlr.Read(&d)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -97,11 +101,16 @@ func TestNewRead(t *testing.T) {
 }
 
 func TestNewUpdate(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Fatal(" store init failed")
+	}
 	d := successStruct{
 		Namespace: "StreamSpace",
 		Id:        "04791e92-0b85-11ea-8d71-362b9e155667",
 	}
-	err := dsHndlr.Read(&d)
+	err = dsHndlr.Read(&d)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -121,12 +130,18 @@ func TestNewUpdate(t *testing.T) {
 }
 
 func TestNewDelete(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Fatal(" store init failed")
+	}
+
 	d := successStruct{
 		Namespace: "StreamSpace",
 		Id:        "04791e92-0b85-11ea-8d71-362b9e155667",
 	}
 
-	err := dsHndlr.Delete(&d)
+	err = dsHndlr.Delete(&d)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -139,6 +154,11 @@ func TestNewDelete(t *testing.T) {
 
 func TestSortNaturalList(t *testing.T) {
 	// Create some dummies with StreamSpace namespace
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Fatal(" store init failed")
+	}
 	for i := 0; i < 5; i++ {
 		d := successStruct{
 			Namespace: "StreamSpace",
@@ -201,7 +221,12 @@ func TestSortNaturalList(t *testing.T) {
 
 func TestSortCreatedAscList(t *testing.T) {
 	// Create some dummies with StreamSpace namespace
-	for i := 0; i < 5; i++ {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Fatal(" store init failed")
+	}
+	for i := 0; i < 10; i++ {
 		d := successStruct{
 			Namespace: "StreamSpace",
 			Id:        uuid.New().String(),
@@ -257,7 +282,12 @@ func TestSortCreatedAscList(t *testing.T) {
 
 func TestSortCreatedDscList(t *testing.T) {
 	// Create some dummies with StreamSpace namespace
-	for i := 0; i < 5; i++ {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Fatal(" store init failed")
+	}
+	for i := 0; i < 10; i++ {
 		d := successStruct{
 			Namespace: "StreamSpace",
 			Id:        uuid.New().String(),
