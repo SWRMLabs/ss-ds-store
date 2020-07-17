@@ -340,3 +340,117 @@ func TestSortCreatedDscList(t *testing.T) {
 		}
 	}
 }
+
+func TestHardTestingASC(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Fatal(" store init failed")
+	}
+
+	for i := 0; i < 30; i++ {
+		d := successStruct{
+			Namespace: "hardtest",
+			Id:        uuid.New().String(),
+		}
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 1)
+	}
+	for i := 0; i < 15; i++ {
+		d := successStruct{
+			Namespace: "other",
+			Id:        uuid.New().String(),
+		}
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 1)
+	}
+	for i := 0; i < 6; i++ {
+		opts := store.ListOpt{
+			Page:  int64(i),
+			Limit: 5,
+			Sort:  store.SortCreatedAsc,
+		}
+		ds := store.Items{}
+		for i := 0; int64(i) < opts.Limit; i++ {
+			d := successStruct{
+				Namespace: "hardtest",
+			}
+			ds = append(ds, &d)
+		}
+		count, err := dsHndlr.List(ds, opts)
+		if err != nil {
+			t.Error(err)
+		}
+		if count == 0 {
+			t.Errorf("Count can't be zero")
+		}
+		for i := 0; i < count; i++ {
+			if ds[i].GetNamespace() != "hardtest" {
+				t.Errorf("Name of %vth element doesn't match", i)
+			}
+		}
+	}
+}
+
+func TestHardTestingDESC(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Fatal(" store init failed")
+	}
+
+	for i := 0; i < 25; i++ {
+		d := successStruct{
+			Namespace: "Noval-Testing",
+			Id:        uuid.New().String(),
+		}
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 1)
+	}
+	for i := 0; i < 15; i++ {
+		d := successStruct{
+			Namespace: "other",
+			Id:        uuid.New().String(),
+		}
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 1)
+	}
+	for i := 0; i < 5; i++ {
+		opts := store.ListOpt{
+			Page:  int64(i),
+			Limit: 5,
+			Sort:  store.SortCreatedDesc,
+		}
+		ds := store.Items{}
+		for i := 0; int64(i) < opts.Limit; i++ {
+			d := successStruct{
+				Namespace: "Noval-Testing",
+			}
+			ds = append(ds, &d)
+		}
+		count, err := dsHndlr.List(ds, opts)
+		if err != nil {
+			t.Error(err)
+		}
+		if count == 0 {
+			t.Errorf("Count can't be zero")
+		}
+		for i := 0; i < count; i++ {
+			if ds[i].GetNamespace() != "Noval-Testing" {
+				t.Errorf("Name of %vth element doesn't match", i)
+			}
+		}
+	}
+}
