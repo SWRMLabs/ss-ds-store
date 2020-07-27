@@ -63,7 +63,7 @@ func TestNewCreation(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
-		t.Fatal(" store init failed")
+		t.Errorf(" store init failed %s", err.Error())
 	}
 
 	d := successStruct{
@@ -83,7 +83,7 @@ func TestNewRead(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
-		t.Fatal(" store init failed")
+		t.Errorf(" store init failed %s", err.Error())
 	}
 
 	d := successStruct{
@@ -133,7 +133,7 @@ func TestNewDelete(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
-		t.Fatal(" store init failed")
+		t.Errorf(" store init failed %s", err.Error())
 	}
 
 	d := successStruct{
@@ -157,7 +157,7 @@ func TestSortNaturalList(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
-		t.Fatal(" store init failed")
+		t.Errorf(" store init failed %s", err.Error())
 	}
 	for i := 0; i < 5; i++ {
 		d := successStruct{
@@ -224,7 +224,7 @@ func TestSortCreatedAscList(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
-		t.Fatal(" store init failed")
+		t.Errorf(" store init failed %s", err.Error())
 	}
 	for i := 0; i < 10; i++ {
 		d := successStruct{
@@ -285,7 +285,7 @@ func TestSortCreatedDscList(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
-		t.Fatal(" store init failed")
+		t.Errorf(" store init failed %s", err.Error())
 	}
 	for i := 0; i < 10; i++ {
 		d := successStruct{
@@ -345,7 +345,7 @@ func TestHardTestingASC(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
-		t.Fatal(" store init failed")
+		t.Errorf(" store init failed %s", err.Error())
 	}
 
 	for i := 0; i < 30; i++ {
@@ -357,7 +357,7 @@ func TestHardTestingASC(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unable to store data %s", err.Error())
 		}
-		<-time.After(time.Second * 1)
+		<-time.After(time.Second * 2)
 	}
 	for i := 0; i < 15; i++ {
 		d := successStruct{
@@ -402,7 +402,7 @@ func TestHardTestingDESC(t *testing.T) {
 	var err error
 	dsHndlr, err = NewDataStore(&cnf)
 	if err != nil {
-		t.Fatal(" store init failed")
+		t.Errorf(" store init failed %s", err.Error())
 	}
 
 	for i := 0; i < 25; i++ {
@@ -414,7 +414,7 @@ func TestHardTestingDESC(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unable to store data %s", err.Error())
 		}
-		<-time.After(time.Second * 1)
+		<-time.After(time.Second * 2)
 	}
 	for i := 0; i < 15; i++ {
 		d := successStruct{
@@ -449,6 +449,161 @@ func TestHardTestingDESC(t *testing.T) {
 		}
 		for i := 0; i < count; i++ {
 			if ds[i].GetNamespace() != "Noval-Testing" {
+				t.Errorf("Name of %vth element doesn't match", i)
+			}
+		}
+		<-time.After(time.Second * 2)
+	}
+}
+
+func TestUpadationCheckASC(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Errorf(" store init failed %s", err.Error())
+	}
+	var id []string
+	for i := 0; i < 25; i++ {
+		d := successStruct{
+			Namespace: "Update-Testing",
+			Id:        uuid.New().String(),
+		}
+		id = append(id, d.Id)
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 15; i++ {
+		d := successStruct{
+			Namespace: "other",
+			Id:        uuid.New().String(),
+		}
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 25; i++ {
+		d := successStruct{
+			Namespace: "Update-Testing",
+			Id:        id[i],
+		}
+		err := dsHndlr.Read(&d)
+		if err != nil {
+			t.Errorf("Unable to read %s", err.Error())
+		}
+		d.FileName = "Update file"
+		err = dsHndlr.Update(&d)
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 5; i++ {
+		opts := store.ListOpt{
+			Page:  int64(i),
+			Limit: 5,
+			Sort:  store.SortCreatedAsc,
+		}
+		ds := store.Items{}
+		for i := 0; int64(i) < opts.Limit; i++ {
+			d := successStruct{
+				Namespace: "Update-Testing",
+			}
+			ds = append(ds, &d)
+		}
+
+		count, err := dsHndlr.List(ds, opts)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if count == 0 {
+			t.Errorf("Count can't be zero")
+		}
+
+		for i := 0; i < count; i++ {
+			if ds[i].GetNamespace() != "Update-Testing" {
+				t.Errorf("Name of %vth element doesn't match", i)
+			}
+		}
+	}
+}
+
+func TestUpadationCheckDESC(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Errorf(" store init failed %s", err.Error())
+	}
+	var id []string
+	for i := 0; i < 25; i++ {
+		d := successStruct{
+			Namespace: "Update-Testing",
+			Id:        uuid.New().String(),
+		}
+		id = append(id, d.Id)
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 15; i++ {
+		d := successStruct{
+			Namespace: "other",
+			Id:        uuid.New().String(),
+		}
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 25; i++ {
+		d := successStruct{
+			Namespace: "Update-Testing",
+			Id:        id[i],
+		}
+		err := dsHndlr.Read(&d)
+		if err != nil {
+			t.Errorf("Unable to read %s", err.Error())
+		}
+		d.FileName = "Update file"
+		err = dsHndlr.Update(&d)
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 5; i++ {
+		opts := store.ListOpt{
+			Page:  int64(i),
+			Limit: 5,
+			Sort:  store.SortCreatedDesc,
+		}
+		ds := store.Items{}
+		for i := 0; int64(i) < opts.Limit; i++ {
+			d := successStruct{
+				Namespace: "Update-Testing",
+			}
+			ds = append(ds, &d)
+		}
+
+		count, err := dsHndlr.List(ds, opts)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if count == 0 {
+			t.Errorf("Count can't be zero")
+		}
+
+		for i := 0; i < count; i++ {
+			if ds[i].GetNamespace() != "Update-Testing" {
 				t.Errorf("Name of %vth element doesn't match", i)
 			}
 		}
