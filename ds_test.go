@@ -506,7 +506,7 @@ func TestUpadationCheckASC(t *testing.T) {
 		opts := store.ListOpt{
 			Page:  int64(i),
 			Limit: 5,
-			Sort:  store.SortCreatedAsc,
+			Sort:  store.SortUpdatedAsc,
 		}
 		ds := store.Items{}
 		for i := 0; int64(i) < opts.Limit; i++ {
@@ -583,7 +583,161 @@ func TestUpadationCheckDESC(t *testing.T) {
 		opts := store.ListOpt{
 			Page:  int64(i),
 			Limit: 5,
-			Sort:  store.SortCreatedDesc,
+			Sort:  store.SortUpdatedDesc,
+		}
+		ds := store.Items{}
+		for i := 0; int64(i) < opts.Limit; i++ {
+			d := successStruct{
+				Namespace: "Update-Testing",
+			}
+			ds = append(ds, &d)
+		}
+
+		count, err := dsHndlr.List(ds, opts)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if count == 0 {
+			t.Errorf("Count can't be zero")
+		}
+
+		for i := 0; i < count; i++ {
+			if ds[i].GetNamespace() != "Update-Testing" {
+				t.Errorf("Name of %vth element doesn't match", i)
+			}
+		}
+	}
+}
+
+func TestUpdateASC(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Errorf(" store init failed %s", err.Error())
+	}
+	var id []string
+	for i := 0; i < 40; i++ {
+		d := successStruct{
+			Namespace: "Update-Testing",
+			Id:        uuid.New().String(),
+		}
+		id = append(id, d.Id)
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 15; i++ {
+		d := successStruct{
+			Namespace: "other",
+			Id:        uuid.New().String(),
+		}
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 1)
+	}
+
+	for i := 0; i < 40; i++ {
+		d := successStruct{
+			Namespace: "Update-Testing",
+			Id:        id[i],
+		}
+		err := dsHndlr.Read(&d)
+		if err != nil {
+			t.Errorf("Unable to read %s", err.Error())
+		}
+		d.FileName = "Update file"
+		err = dsHndlr.Update(&d)
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 2; i++ {
+		opts := store.ListOpt{
+			Page:  int64(i),
+			Limit: 20,
+			Sort:  store.SortUpdatedAsc,
+		}
+		ds := store.Items{}
+		for i := 0; int64(i) < opts.Limit; i++ {
+			d := successStruct{
+				Namespace: "Update-Testing",
+			}
+			ds = append(ds, &d)
+		}
+
+		count, err := dsHndlr.List(ds, opts)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if count == 0 {
+			t.Errorf("Count can't be zero")
+		}
+
+		for i := 0; i < count; i++ {
+			if ds[i].GetNamespace() != "Update-Testing" {
+				t.Errorf("Name of %vth element doesn't match", i)
+			}
+		}
+	}
+}
+
+func TestUpdateDESC(t *testing.T) {
+	var err error
+	dsHndlr, err = NewDataStore(&cnf)
+	if err != nil {
+		t.Errorf(" store init failed %s", err.Error())
+	}
+	var id []string
+	for i := 0; i < 40; i++ {
+		d := successStruct{
+			Namespace: "Update-Testing",
+			Id:        uuid.New().String(),
+		}
+		id = append(id, d.Id)
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 15; i++ {
+		d := successStruct{
+			Namespace: "other",
+			Id:        uuid.New().String(),
+		}
+		err = dsHndlr.Create(&d)
+		if err != nil {
+			t.Errorf("Unable to store data %s", err.Error())
+		}
+		<-time.After(time.Second * 1)
+	}
+
+	for i := 0; i < 40; i++ {
+		d := successStruct{
+			Namespace: "Update-Testing",
+			Id:        id[i],
+		}
+		err := dsHndlr.Read(&d)
+		if err != nil {
+			t.Errorf("Unable to read %s", err.Error())
+		}
+		d.FileName = "Update file"
+		err = dsHndlr.Update(&d)
+		<-time.After(time.Second * 2)
+	}
+
+	for i := 0; i < 2; i++ {
+		opts := store.ListOpt{
+			Page:  int64(i),
+			Limit: 20,
+			Sort:  store.SortUpdatedDesc,
 		}
 		ds := store.Items{}
 		for i := 0; int64(i) < opts.Limit; i++ {
