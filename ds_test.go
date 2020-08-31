@@ -2,6 +2,7 @@ package ds
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -19,6 +20,22 @@ type successStruct struct {
 	FileName  string
 	CreatedAt int64
 	UpdatedAt int64
+}
+
+type streamspaceFactory struct {}
+
+func (f streamspaceFactory) Factory() store.SerializedItem {
+	return &successStruct{
+		Namespace: "StreamSpace",
+	}
+}
+
+type otherFactory struct {}
+
+func (f otherFactory) Factory() store.SerializedItem {
+	return &successStruct{
+		Namespace: "Other",
+	}
 }
 
 func (t *successStruct) GetNamespace() string { return t.Namespace }
@@ -174,22 +191,86 @@ func TestSortNaturalList(t *testing.T) {
 		Sort:  sort,
 	}
 
-	ds := store.Items{}
-
-	for i := 0; int64(i) < opts.Limit; i++ {
-		d := successStruct{
-			Namespace: "StreamSpace",
-		}
-		ds = append(ds, &d)
-	}
-
-	count, err := dsHndlr.List(ds, opts)
+	count, ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	if count == 0 {
 		t.Fatalf("count should not be zero")
+	}
+
+	for i := 0; i < count; i++ {
+		if ds[i].GetNamespace() != "StreamSpace" {
+			t.Fatalf("Namespace of the %vth element in list dosn't match", i)
+		}
+	}
+}
+
+type filterFileName struct {
+	fileName string
+}
+
+func (f filterFileName) Factory() store.SerializedItem {
+	return &successStruct{}
+}
+
+func (f filterFileName) Compare(i store.SerializedItem) bool {
+	st, ok := i.(*successStruct)
+	if !ok {
+		return false
+	}
+	return st.FileName == f.fileName
+}
+
+func TestSortNaturalListWithFilter(t *testing.T) {
+	// Create some dummies with StreamSpace namespace
+	for i := 0; i < 5; i++ {
+		d := successStruct{
+			Namespace: "StreamSpace",
+			Id:        uuid.New().String(),
+			FileName: fmt.Sprintf("File%d", i),
+		}
+		err := dsHndlr.Create(&d)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		//<-time.After(time.Second * 1)
+	}
+
+	//Create some dummies with Other namespace
+	for i := 0; i < 5; i++ {
+		d := successStruct{
+			Namespace: "Other",
+			Id:        uuid.New().String(),
+		}
+		err := dsHndlr.Create(&d)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		//<-time.After(time.Second * 1)
+	}
+
+	var sort store.Sort
+	sort = 0
+	opts := store.ListOpt{
+		Page:  0,
+		Limit: 3,
+		Sort:  sort,
+		Filters: &filterFileName{fileName: "File1"},
+	}
+
+	count, ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	if count == 0 {
+		t.Fatalf("count should not be zero")
+	}
+
+	if count != 1 {
+		t.Fatalf("count should be 1")
 	}
 
 	for i := 0; i < count; i++ {
@@ -232,16 +313,7 @@ func TestSortCreatedAscList(t *testing.T) {
 		Sort:  store.SortCreatedAsc,
 	}
 
-	ds := store.Items{}
-
-	for i := 0; int64(i) < opts.Limit; i++ {
-		d := successStruct{
-			Namespace: "StreamSpace",
-		}
-		ds = append(ds, &d)
-	}
-
-	count, err := dsHndlr.List(ds, opts)
+	count, ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -288,16 +360,7 @@ func TestSortCreatedDscList(t *testing.T) {
 		Sort:  store.SortCreatedDesc,
 	}
 
-	ds := store.Items{}
-
-	for i := 0; int64(i) < opts.Limit; i++ {
-		d := successStruct{
-			Namespace: "StreamSpace",
-		}
-		ds = append(ds, &d)
-	}
-
-	count, err := dsHndlr.List(ds, opts)
+	count, ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
