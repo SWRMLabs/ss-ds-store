@@ -9,7 +9,6 @@ import (
 
 	"github.com/StreamSpace/ss-store"
 	"github.com/google/uuid"
-	"github.com/ipfs/go-datastore"
 	badger "github.com/ipfs/go-ds-badger"
 	logger "github.com/ipfs/go-log/v2"
 )
@@ -149,7 +148,7 @@ func TestNewDelete(t *testing.T) {
 	}
 
 	err = dsHndlr.Read(&d)
-	if err != datastore.ErrNotFound {
+	if err != store.ErrRecordNotFound {
 		t.Fatal("error should be of type ErrNotFound")
 	}
 }
@@ -191,16 +190,15 @@ func TestSortNaturalList(t *testing.T) {
 		Sort:  sort,
 	}
 
-	count, ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
+	ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-
-	if count == 0 {
+	if len(ds) == 0 {
 		t.Fatalf("count should not be zero")
 	}
 
-	for i := 0; i < count; i++ {
+	for i := 0; i < len(ds); i++ {
 		if ds[i].GetNamespace() != "StreamSpace" {
 			t.Fatalf("Namespace of the %vth element in list dosn't match", i)
 		}
@@ -257,23 +255,23 @@ func TestSortNaturalListWithFilter(t *testing.T) {
 		Page:  0,
 		Limit: 3,
 		Sort:  sort,
-		Filters: &filterFileName{fileName: "File1"},
+		Filter: &filterFileName{fileName: "File1"},
 	}
 
-	count, ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
+	ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	if count == 0 {
+	if len(ds) == 0 {
 		t.Fatalf("count should not be zero")
 	}
 
-	if count != 1 {
+	if len(ds) != 1 {
 		t.Fatalf("count should be 1")
 	}
 
-	for i := 0; i < count; i++ {
+	for i := 0; i < len(ds); i++ {
 		if ds[i].GetNamespace() != "StreamSpace" {
 			t.Fatalf("Namespace of the %vth element in list dosn't match", i)
 		}
@@ -313,14 +311,14 @@ func TestSortCreatedAscList(t *testing.T) {
 		Sort:  store.SortCreatedAsc,
 	}
 
-	count, ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
+	ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if count == 0 {
+	if len(ds) == 0 {
 		t.Fatalf("count should not be zero")
 	}
-	for i := 0; i < count; i++ {
+	for i := 0; i < len(ds); i++ {
 		if ds[i].GetNamespace() != "StreamSpace" {
 			t.Fatalf("Namespace of the %vth element in list dosn't match", i)
 		}
@@ -360,14 +358,14 @@ func TestSortCreatedDscList(t *testing.T) {
 		Sort:  store.SortCreatedDesc,
 	}
 
-	count, ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
+	ds, err := dsHndlr.List(&streamspaceFactory{}, opts)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if count == 0 {
+	if len(ds) == 0 {
 		t.Fatalf("count should not be zero")
 	}
-	for i := 0; i < count; i++ {
+	for i := 0; i < len(ds); i++ {
 		if ds[i].GetNamespace() != "StreamSpace" {
 			t.Fatalf("Namespace of the %vth element in list dosn't match", i)
 		}
