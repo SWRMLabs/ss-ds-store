@@ -28,7 +28,7 @@ type ssDSHandler struct {
 }
 
 type userFilter struct {
-	filter store.Filter
+	filter store.ItemFilter
 	factory store.Factory
 }
 
