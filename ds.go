@@ -177,7 +177,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 		q.Prefix = "create"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
-		list = dsh.getSortedResults(o.Limit, q, factory, list)
+		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortCreatedDesc:
 		log.Debug("SortCreatedDesc")
 		f := filterValuePrefix{
@@ -187,7 +187,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 		q.Prefix = "create"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
-		list = dsh.getSortedResults(o.Limit, q, factory, list)
+		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortUpdatedAsc:
 		log.Debug("SortUpdatedAsc")
 		f := filterValuePrefix{
@@ -197,7 +197,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 		q.Prefix = "update"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
-		list = dsh.getSortedResults(o.Limit, q, factory, list)
+		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortUpdatedDesc:
 		log.Debug("SortUpdatedDesc")
 		f := filterValuePrefix{
@@ -207,7 +207,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 		q.Prefix = "update"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
-		list = dsh.getSortedResults(o.Limit, q, factory, list)
+		list = dsh.getSortedResults(o.Limit, q, factory)
 	}
 
 	return list, nil
@@ -232,8 +232,9 @@ func (dsh *ssDSHandler) Close() error {
 	return nil
 }
 
-func (dsh *ssDSHandler) getSortedResults(limit int64, q query.Query, f store.Factory, l store.Items) store.Items {
+func (dsh *ssDSHandler) getSortedResults(limit int64, q query.Query, f store.Factory) store.Items {
 	listCounter := 0
+	l := []store.Item{}
 	result, _ := dsh.ds.Query(q)
 	for v := range result.Next() {
 		if listCounter < int(limit) {
