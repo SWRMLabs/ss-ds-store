@@ -152,8 +152,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 		Filters: queryFilters,
 	}
 	listCounter := 0
-	list := []store.Item{}
-
+	var list []store.Item
 	switch order {
 	case store.SortNatural:
 		result, _ := dsh.ds.Query(q)
