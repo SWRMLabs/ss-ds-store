@@ -19,8 +19,26 @@ type DSConfig struct {
 	DS datastore.Batching
 }
 
+func (ds *DSConfig) Handler() string {
+	return "dsdb"
+}
+
 type ssDSHandler struct {
 	ds datastore.Batching
+}
+
+type userFilter struct {
+	filter store.ItemFilter
+	factory store.Factory
+}
+
+func (f userFilter) Filter(e query.Entry) bool {
+	s := f.factory.Factory()
+	err := s.Unmarshal(e.Value)
+	if err != nil {
+		return false
+	}
+	return f.filter.Compare(s)
 }
 
 func NewDataStore(dsConf *DSConfig) (store.Store, error) {
@@ -81,7 +99,7 @@ func (dsh *ssDSHandler) Read(i store.Item) error {
 	key := createKey(i)
 	buf, err := dsh.ds.Get(key)
 	if err != nil {
-		return err
+		return store.ErrRecordNotFound
 	}
 	return serializableItem.Unmarshal(buf)
 }
@@ -115,29 +133,37 @@ func (dsh *ssDSHandler) Delete(i store.Item) error {
 	return dsh.ds.Delete(key)
 }
 
-func (dsh *ssDSHandler) List(l store.Items, o store.ListOpt) (int, error) {
+func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Items, error) {
 	<-time.After(time.Second * 3)
 	order := o.Sort
+	queryFilters := []query.Filter{}
+	if o.Filter != nil {
+		filter := userFilter{
+			filter: o.Filter,
+			factory: factory,
+		}
+		queryFilters = append(queryFilters, filter)
+	}
+
 	q := query.Query{
-		Prefix: l[0].GetNamespace(),
+		Prefix: factory.Factory().GetNamespace(),
 		Limit:  int(o.Limit),
 		Offset: int(o.Limit * o.Page),
+		Filters: queryFilters,
 	}
 	listCounter := 0
-
+	var list []store.Item
 	switch order {
 	case store.SortNatural:
 		result, _ := dsh.ds.Query(q)
 		for v := range result.Next() {
 			if listCounter < int(o.Limit) {
-				serializableItem, ok := l[listCounter].(store.Serializable)
-				if ok != true {
-					continue
-				}
+				serializableItem := factory.Factory()
 				err := serializableItem.Unmarshal(v.Value)
 				if err != nil {
 					continue
 				}
+				list = append(list, serializableItem)
 				listCounter++
 			}
 		}
@@ -148,9 +174,9 @@ func (dsh *ssDSHandler) List(l store.Items, o store.ListOpt) (int, error) {
 		}
 		c := query.OrderByKey{}
 		q.Prefix = "create"
-		q.Filters = []query.Filter{f}
+		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
-		listCounter = dsh.getSortedResults(o.Limit, q, l)
+		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortCreatedDesc:
 		log.Debug("SortCreatedDesc")
 		f := filterValuePrefix{
@@ -158,9 +184,9 @@ func (dsh *ssDSHandler) List(l store.Items, o store.ListOpt) (int, error) {
 		}
 		c := orderByKeyDescending{}
 		q.Prefix = "create"
-		q.Filters = []query.Filter{f}
+		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
-		listCounter = dsh.getSortedResults(o.Limit, q, l)
+		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortUpdatedAsc:
 		log.Debug("SortUpdatedAsc")
 		f := filterValuePrefix{
@@ -168,9 +194,9 @@ func (dsh *ssDSHandler) List(l store.Items, o store.ListOpt) (int, error) {
 		}
 		c := query.OrderByKey{}
 		q.Prefix = "update"
-		q.Filters = []query.Filter{f}
+		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
-		listCounter = dsh.getSortedResults(o.Limit, q, l)
+		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortUpdatedDesc:
 		log.Debug("SortUpdatedDesc")
 		f := filterValuePrefix{
@@ -178,12 +204,12 @@ func (dsh *ssDSHandler) List(l store.Items, o store.ListOpt) (int, error) {
 		}
 		c := orderByKeyDescending{}
 		q.Prefix = "update"
-		q.Filters = []query.Filter{f}
+		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
-		listCounter = dsh.getSortedResults(o.Limit, q, l)
+		list = dsh.getSortedResults(o.Limit, q, factory)
 	}
 
-	return listCounter, nil
+	return list, nil
 }
 
 type filterValuePrefix struct {
@@ -205,8 +231,9 @@ func (dsh *ssDSHandler) Close() error {
 	return nil
 }
 
-func (dsh *ssDSHandler) getSortedResults(limit int64, q query.Query, l store.Items) int {
+func (dsh *ssDSHandler) getSortedResults(limit int64, q query.Query, f store.Factory) store.Items {
 	listCounter := 0
+	l := []store.Item{}
 	result, _ := dsh.ds.Query(q)
 	for v := range result.Next() {
 		if listCounter < int(limit) {
@@ -216,17 +243,15 @@ func (dsh *ssDSHandler) getSortedResults(limit int64, q query.Query, l store.Ite
 				log.Errorf("Unable to get data ", err.Error())
 				continue
 			}
-			serializableItem, ok := l[listCounter].(store.Serializable)
-			if ok != true {
-				continue
-			}
+			serializableItem := f.Factory()
 			err = serializableItem.Unmarshal(buf)
 			if err != nil {
 				log.Errorf("Unable to Unmarshal data ", err.Error())
 				continue
 			}
+			l = append(l, serializableItem)
 			listCounter++
 		}
 	}
-	return listCounter
+	return l
 }
