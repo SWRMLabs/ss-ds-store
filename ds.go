@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/StreamSpace/ss-store"
+	store "github.com/StreamSpace/ss-store"
 	"github.com/google/uuid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
@@ -16,7 +16,8 @@ import (
 var log = logger.Logger("store/ds")
 
 type DSConfig struct {
-	DS datastore.Batching
+	DS        datastore.Batching
+	WithIndex bool
 }
 
 func (ds *DSConfig) Handler() string {
@@ -24,11 +25,12 @@ func (ds *DSConfig) Handler() string {
 }
 
 type ssDSHandler struct {
-	ds datastore.Batching
+	ds        datastore.Batching
+	withIndex bool
 }
 
 type userFilter struct {
-	filter store.ItemFilter
+	filter  store.ItemFilter
 	factory store.Factory
 }
 
@@ -43,7 +45,8 @@ func (f userFilter) Filter(e query.Entry) bool {
 
 func NewDataStore(dsConf *DSConfig) (store.Store, error) {
 	return &ssDSHandler{
-		ds: dsConf.DS,
+		ds:        dsConf.DS,
+		withIndex: dsConf.WithIndex,
 	}, nil
 }
 
@@ -76,7 +79,7 @@ func (dsh *ssDSHandler) Create(i store.Item) error {
 	}
 
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok {
+	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
 		var unixTime = time.Now().Unix()
 		timeTracker.SetCreated(unixTime)
 		timeTracker.SetUpdated(unixTime)
@@ -111,7 +114,7 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 	}
 
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok {
+	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
 		var unixTime = time.Now().Unix()
 		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), "update"))
 		timeTracker.SetUpdated(unixTime)
@@ -126,7 +129,7 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 
 func (dsh *ssDSHandler) Delete(i store.Item) error {
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok {
+	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
 		dsh.deleteIndex(createIndexKey(timeTracker.GetCreated(), "create"))
 		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), "update"))
 	}
@@ -134,21 +137,23 @@ func (dsh *ssDSHandler) Delete(i store.Item) error {
 }
 
 func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Items, error) {
-	<-time.After(time.Second * 3)
 	order := o.Sort
+	if order != store.SortNatural && dsh.withIndex {
+		return nil, errors.New("indexing is not supported")
+	}
 	queryFilters := []query.Filter{}
 	if o.Filter != nil {
 		filter := userFilter{
-			filter: o.Filter,
+			filter:  o.Filter,
 			factory: factory,
 		}
 		queryFilters = append(queryFilters, filter)
 	}
 
 	q := query.Query{
-		Prefix: factory.Factory().GetNamespace(),
-		Limit:  int(o.Limit),
-		Offset: int(o.Limit * o.Page),
+		Prefix:  factory.Factory().GetNamespace(),
+		Limit:   int(o.Limit),
+		Offset:  int(o.Limit * o.Page),
 		Filters: queryFilters,
 	}
 	listCounter := 0
