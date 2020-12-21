@@ -138,7 +138,7 @@ func (dsh *ssDSHandler) Delete(i store.Item) error {
 
 func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Items, error) {
 	order := o.Sort
-	if order != store.SortNatural && dsh.withIndex {
+	if order != store.SortNatural && !dsh.withIndex {
 		return nil, errors.New("indexing is not supported")
 	}
 	queryFilters := []query.Filter{}
