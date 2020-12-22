@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/StreamSpace/ss-store"
+	store "github.com/StreamSpace/ss-store"
 	"github.com/google/uuid"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
@@ -16,7 +16,8 @@ import (
 var log = logger.Logger("store/ds")
 
 type DSConfig struct {
-	DS datastore.Batching
+	DS        datastore.Batching
+	WithIndex bool
 }
 
 func (ds *DSConfig) Handler() string {
@@ -24,11 +25,12 @@ func (ds *DSConfig) Handler() string {
 }
 
 type ssDSHandler struct {
-	ds datastore.Batching
+	ds        datastore.Batching
+	withIndex bool
 }
 
 type userFilter struct {
-	filter store.ItemFilter
+	filter  store.ItemFilter
 	factory store.Factory
 }
 
@@ -43,7 +45,8 @@ func (f userFilter) Filter(e query.Entry) bool {
 
 func NewDataStore(dsConf *DSConfig) (store.Store, error) {
 	return &ssDSHandler{
-		ds: dsConf.DS,
+		ds:        dsConf.DS,
+		withIndex: dsConf.WithIndex,
 	}, nil
 }
 
@@ -76,12 +79,12 @@ func (dsh *ssDSHandler) Create(i store.Item) error {
 	}
 
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok {
+	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
 		var unixTime = time.Now().Unix()
 		timeTracker.SetCreated(unixTime)
 		timeTracker.SetUpdated(unixTime)
-		dsh.addIndex(createIndexKey(timeTracker.GetCreated(), "create"), key)
-		dsh.addIndex(createIndexKey(timeTracker.GetUpdated(), "update"), key)
+		dsh.addIndex(createIndexKey(timeTracker.GetCreated(), i.GetNamespace()+"/create"), key)
+		dsh.addIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"), key)
 	}
 
 	value, err := serializableItem.Marshal()
@@ -111,11 +114,11 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 	}
 
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok {
+	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
 		var unixTime = time.Now().Unix()
-		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), "update"))
+		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"))
 		timeTracker.SetUpdated(unixTime)
-		dsh.addIndex(createIndexKey(timeTracker.GetUpdated(), "update"), key)
+		dsh.addIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"), key)
 	}
 	value, err := serializableItem.Marshal()
 	if err != nil {
@@ -126,29 +129,31 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 
 func (dsh *ssDSHandler) Delete(i store.Item) error {
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok {
-		dsh.deleteIndex(createIndexKey(timeTracker.GetCreated(), "create"))
-		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), "update"))
+	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
+		dsh.deleteIndex(createIndexKey(timeTracker.GetCreated(), i.GetNamespace()+"/create"))
+		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"))
 	}
 	return dsh.ds.Delete(key)
 }
 
 func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Items, error) {
-	<-time.After(time.Second * 3)
 	order := o.Sort
+	if order != store.SortNatural && !dsh.withIndex {
+		return nil, errors.New("indexing is not supported")
+	}
 	queryFilters := []query.Filter{}
 	if o.Filter != nil {
 		filter := userFilter{
-			filter: o.Filter,
+			filter:  o.Filter,
 			factory: factory,
 		}
 		queryFilters = append(queryFilters, filter)
 	}
 
 	q := query.Query{
-		Prefix: factory.Factory().GetNamespace(),
-		Limit:  int(o.Limit),
-		Offset: int(o.Limit * o.Page),
+		Prefix:  factory.Factory().GetNamespace(),
+		Limit:   int(o.Limit),
+		Offset:  int(o.Limit * o.Page),
 		Filters: queryFilters,
 	}
 	listCounter := 0
@@ -173,7 +178,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 			Prefix: q.Prefix,
 		}
 		c := query.OrderByKey{}
-		q.Prefix = "create"
+		q.Prefix = factory.Factory().GetNamespace() + "/create"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
 		list = dsh.getSortedResults(o.Limit, q, factory)
@@ -183,7 +188,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 			Prefix: q.Prefix,
 		}
 		c := orderByKeyDescending{}
-		q.Prefix = "create"
+		q.Prefix = factory.Factory().GetNamespace() + "/create"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
 		list = dsh.getSortedResults(o.Limit, q, factory)
@@ -193,7 +198,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 			Prefix: q.Prefix,
 		}
 		c := query.OrderByKey{}
-		q.Prefix = "update"
+		q.Prefix = factory.Factory().GetNamespace() + "/update"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
 		list = dsh.getSortedResults(o.Limit, q, factory)
@@ -203,7 +208,7 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 			Prefix: q.Prefix,
 		}
 		c := orderByKeyDescending{}
-		q.Prefix = "update"
+		q.Prefix = factory.Factory().GetNamespace() + "/update"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
 		list = dsh.getSortedResults(o.Limit, q, factory)
