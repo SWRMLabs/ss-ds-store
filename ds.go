@@ -16,8 +16,7 @@ import (
 var log = logger.Logger("store/ds")
 
 type DSConfig struct {
-	DS        datastore.Batching
-	WithIndex bool
+	DS datastore.Batching
 }
 
 func (ds *DSConfig) Handler() string {
@@ -25,8 +24,7 @@ func (ds *DSConfig) Handler() string {
 }
 
 type ssDSHandler struct {
-	ds        datastore.Batching
-	withIndex bool
+	ds datastore.Batching
 }
 
 type userFilter struct {
@@ -45,8 +43,7 @@ func (f userFilter) Filter(e query.Entry) bool {
 
 func NewDataStore(dsConf *DSConfig) (store.Store, error) {
 	return &ssDSHandler{
-		ds:        dsConf.DS,
-		withIndex: dsConf.WithIndex,
+		ds: dsConf.DS,
 	}, nil
 }
 
@@ -79,7 +76,7 @@ func (dsh *ssDSHandler) Create(i store.Item) error {
 	}
 
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
+	if timeTracker, ok := i.(store.TimeTracker); ok {
 		var unixTime = time.Now().Unix()
 		timeTracker.SetCreated(unixTime)
 		timeTracker.SetUpdated(unixTime)
@@ -114,7 +111,7 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 	}
 
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
+	if timeTracker, ok := i.(store.TimeTracker); ok {
 		var unixTime = time.Now().Unix()
 		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"))
 		timeTracker.SetUpdated(unixTime)
@@ -129,7 +126,7 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 
 func (dsh *ssDSHandler) Delete(i store.Item) error {
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok && dsh.withIndex {
+	if timeTracker, ok := i.(store.TimeTracker); ok {
 		dsh.deleteIndex(createIndexKey(timeTracker.GetCreated(), i.GetNamespace()+"/create"))
 		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"))
 	}
@@ -138,7 +135,8 @@ func (dsh *ssDSHandler) Delete(i store.Item) error {
 
 func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Items, error) {
 	order := o.Sort
-	if order != store.SortNatural && !dsh.withIndex {
+	_, ok := factory.Factory().(store.TimeTracker)
+	if order != store.SortNatural && !ok {
 		return nil, errors.New("indexing is not supported")
 	}
 	queryFilters := []query.Filter{}
