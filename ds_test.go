@@ -13,7 +13,9 @@ func TestStoreSuite(t *testing.T) {
 	logger.SetLogLevel("*", "Debug")
 	dsPath := "/tmp/dataStore"
 
-	os.RemoveAll(dsPath)
+	defer func() {
+		os.RemoveAll(dsPath)
+	}()
 
 	ds, err := badger.NewDatastore(dsPath, &badger.DefaultOptions)
 	if err != nil {
