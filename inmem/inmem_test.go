@@ -3,7 +3,7 @@ package inmem
 import (
 	"testing"
 
-	"github.com/StreamSpace/ss-store/testsuite"
+	"github.com/SWRMLabs/ss-store/testsuite"
 	logger "github.com/ipfs/go-log/v2"
 )
 

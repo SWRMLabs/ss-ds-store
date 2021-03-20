@@ -5,10 +5,10 @@ IPFS Datastore implementation of ss-store
 `ss-ds-store` works like a regular Go module:
 
 ```
-> go get github.com/StreamSpace/ss-ds-store
+> go get github.com/SWRMLabs/ss-ds-store
 ```
 
 ## Usage
 ```
-import "github.com/StreamSpace/ss-ds-store"
+import "github.com/SWRMLabs/ss-ds-store"
 ```

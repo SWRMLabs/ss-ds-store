@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/StreamSpace/ss-store/testsuite"
+	"github.com/SWRMLabs/ss-store/testsuite"
 	badger "github.com/ipfs/go-ds-badger"
 	logger "github.com/ipfs/go-log/v2"
 )
