@@ -183,7 +183,7 @@ func (dsh *ssDSHandler) List(
 	case store.SortCreatedAsc:
 		log.Debug("SortCreatedAsc")
 		f := filterValuePrefix{
-			Prefix: q.Prefix + "/k",
+			Prefix: q.Prefix,
 		}
 		c := query.OrderByKey{}
 		q.Prefix = factory.Factory().GetNamespace() + "/c"
@@ -193,7 +193,7 @@ func (dsh *ssDSHandler) List(
 	case store.SortCreatedDesc:
 		log.Debug("SortCreatedDesc")
 		f := filterValuePrefix{
-			Prefix: q.Prefix + "/k",
+			Prefix: q.Prefix,
 		}
 		c := orderByKeyDescending{}
 		q.Prefix = factory.Factory().GetNamespace() + "/c"
@@ -203,7 +203,7 @@ func (dsh *ssDSHandler) List(
 	case store.SortUpdatedAsc:
 		log.Debug("SortUpdatedAsc")
 		f := filterValuePrefix{
-			Prefix: q.Prefix + "/k",
+			Prefix: q.Prefix,
 		}
 		c := query.OrderByKey{}
 		q.Prefix = factory.Factory().GetNamespace() + "/u"
@@ -213,7 +213,7 @@ func (dsh *ssDSHandler) List(
 	case store.SortUpdatedDesc:
 		log.Debug("SortUpdatedDesc")
 		f := filterValuePrefix{
-			Prefix: q.Prefix + "/k",
+			Prefix: q.Prefix,
 		}
 		c := orderByKeyDescending{}
 		q.Prefix = factory.Factory().GetNamespace() + "/u"
