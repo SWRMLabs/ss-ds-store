@@ -48,11 +48,19 @@ func NewDataStore(dsConf *DSConfig) (store.Store, error) {
 }
 
 func createKey(i store.Item) datastore.Key {
-	return datastore.NewKey(i.GetNamespace() + "/" + i.GetId())
+	return datastore.NewKey(i.GetNamespace() + "/k" + "/" + i.GetId())
 }
 
-func createIndexKey(i int64, prefix string) datastore.Key {
-	return datastore.NewKey(prefix + "/" + fmt.Sprintf("%d", i))
+func createdIdxKey(i store.Item) datastore.Key {
+	k := fmt.Sprintf("%s/%s/%d", i.GetNamespace(), "c",
+		i.(store.TimeTracker).GetCreated())
+	return datastore.NewKey(k)
+}
+
+func updatedIdxKey(i store.Item) datastore.Key {
+	k := fmt.Sprintf("%s/%s/%d", i.GetNamespace(), "u",
+		i.(store.TimeTracker).GetUpdated())
+	return datastore.NewKey(k)
 }
 
 // DeleteIndex Func Imp
@@ -80,8 +88,8 @@ func (dsh *ssDSHandler) Create(i store.Item) error {
 		var unixTime = time.Now().Unix()
 		timeTracker.SetCreated(unixTime)
 		timeTracker.SetUpdated(unixTime)
-		dsh.addIndex(createIndexKey(timeTracker.GetCreated(), i.GetNamespace()+"/create"), key)
-		dsh.addIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"), key)
+		dsh.addIndex(createdIdxKey(i), key)
+		dsh.addIndex(updatedIdxKey(i), key)
 	}
 
 	value, err := serializableItem.Marshal()
@@ -113,9 +121,9 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 	key := createKey(i)
 	if timeTracker, ok := i.(store.TimeTracker); ok {
 		var unixTime = time.Now().Unix()
-		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"))
+		dsh.deleteIndex(updatedIdxKey(i))
 		timeTracker.SetUpdated(unixTime)
-		dsh.addIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"), key)
+		dsh.addIndex(updatedIdxKey(i), key)
 	}
 	value, err := serializableItem.Marshal()
 	if err != nil {
@@ -126,14 +134,17 @@ func (dsh *ssDSHandler) Update(i store.Item) error {
 
 func (dsh *ssDSHandler) Delete(i store.Item) error {
 	key := createKey(i)
-	if timeTracker, ok := i.(store.TimeTracker); ok {
-		dsh.deleteIndex(createIndexKey(timeTracker.GetCreated(), i.GetNamespace()+"/create"))
-		dsh.deleteIndex(createIndexKey(timeTracker.GetUpdated(), i.GetNamespace()+"/update"))
+	if _, ok := i.(store.TimeTracker); ok {
+		dsh.deleteIndex(createdIdxKey(i))
+		dsh.deleteIndex(updatedIdxKey(i))
 	}
 	return dsh.ds.Delete(key)
 }
 
-func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Items, error) {
+func (dsh *ssDSHandler) List(
+	factory store.Factory,
+	o store.ListOpt,
+) (store.Items, error) {
 	order := o.Sort
 	_, ok := factory.Factory().(store.TimeTracker)
 	if order != store.SortNatural && !ok {
@@ -147,9 +158,8 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 		}
 		queryFilters = append(queryFilters, filter)
 	}
-
 	q := query.Query{
-		Prefix:  factory.Factory().GetNamespace(),
+		Prefix:  factory.Factory().GetNamespace() + "/k",
 		Limit:   int(o.Limit),
 		Offset:  int(o.Limit * o.Page),
 		Filters: queryFilters,
@@ -173,40 +183,40 @@ func (dsh *ssDSHandler) List(factory store.Factory, o store.ListOpt) (store.Item
 	case store.SortCreatedAsc:
 		log.Debug("SortCreatedAsc")
 		f := filterValuePrefix{
-			Prefix: q.Prefix,
+			Prefix: q.Prefix + "/k",
 		}
 		c := query.OrderByKey{}
-		q.Prefix = factory.Factory().GetNamespace() + "/create"
+		q.Prefix = factory.Factory().GetNamespace() + "/c"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
 		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortCreatedDesc:
 		log.Debug("SortCreatedDesc")
 		f := filterValuePrefix{
-			Prefix: q.Prefix,
+			Prefix: q.Prefix + "/k",
 		}
 		c := orderByKeyDescending{}
-		q.Prefix = factory.Factory().GetNamespace() + "/create"
+		q.Prefix = factory.Factory().GetNamespace() + "/c"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
 		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortUpdatedAsc:
 		log.Debug("SortUpdatedAsc")
 		f := filterValuePrefix{
-			Prefix: q.Prefix,
+			Prefix: q.Prefix + "/k",
 		}
 		c := query.OrderByKey{}
-		q.Prefix = factory.Factory().GetNamespace() + "/update"
+		q.Prefix = factory.Factory().GetNamespace() + "/u"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
 		list = dsh.getSortedResults(o.Limit, q, factory)
 	case store.SortUpdatedDesc:
 		log.Debug("SortUpdatedDesc")
 		f := filterValuePrefix{
-			Prefix: q.Prefix,
+			Prefix: q.Prefix + "/k",
 		}
 		c := orderByKeyDescending{}
-		q.Prefix = factory.Factory().GetNamespace() + "/update"
+		q.Prefix = factory.Factory().GetNamespace() + "/u"
 		q.Filters = append(q.Filters, f)
 		q.Orders = []query.Order{c}
 		list = dsh.getSortedResults(o.Limit, q, factory)
